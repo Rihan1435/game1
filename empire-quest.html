@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kaal Yatra: Empire Quest</title>
+<style>
+  :root{
+    --panel:#2b1c12;
+    --panel-2:#3c2717;
+    --gold:#e8b23e;
+    --gold-dim:#8a6a2c;
+    --cream:#f6ecd8;
+    --ink:#231409;
+    --red:#c0392b;
+    --green:#3f9142;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:#0c0705;
+    font-family:'Trebuchet MS','Segoe UI',Verdana,sans-serif;
+    color:var(--cream);
+    overflow:hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select:none;
+  }
+  #gameWrap{
+    position:relative;
+    width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, #1a0f08 0%, #050302 100%);
+  }
+  #stage{
+    position:relative;
+    width:960px; height:540px;
+    max-width:100vw; max-height:100vh;
+    box-shadow:0 0 0 6px var(--panel-2), 0 0 0 10px var(--gold), 0 20px 60px rgba(0,0,0,.7);
+    background:#000;
+  }
+  canvas{
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    image-rendering:pixelated;
+    display:block;
+  }
+  #hud{
+    position:absolute; top:0; left:0; width:100%; padding:10px 16px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; z-index:5; font-weight:bold;
+  }
+  .hud-box{
+    background:rgba(20,12,6,.72);
+    border:2px solid var(--gold-dim);
+    border-radius:8px;
+    padding:6px 12px;
+    font-size:14px;
+    letter-spacing:.5px;
+    text-shadow:1px 1px 0 #000;
+  }
+  .hearts{ color:#ff5b5b; font-size:16px; letter-spacing:2px;}
+  .progress-dots{ display:flex; gap:6px; margin-top:4px; }
+  .dot{ width:11px; height:11px; border-radius:50%; background:#5a3d20; border:1px solid #000; }
+  .dot.on{ background:var(--gold); box-shadow:0 0 6px var(--gold); }
+  .dot.active{ background:#fff; box-shadow:0 0 8px #fff; }
+
+  #promptBubble{
+    position:absolute; z-index:6; pointer-events:none;
+    background:var(--cream); color:var(--ink); padding:4px 10px; border-radius:10px;
+    font-size:12px; font-weight:bold; border:2px solid var(--ink);
+    display:none; white-space:nowrap;
+    transform:translate(-50%,-100%);
+  }
+  #promptBubble:after{
+    content:''; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%);
+    border:6px solid transparent; border-top-color:var(--cream);
+  }
+
+  /* Overlays */
+  .overlay{
+    position:absolute; inset:0; z-index:20;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(6,3,1,.86);
+    padding:20px;
+  }
+  .overlay.show{ display:flex; }
+  .panel{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:4px solid var(--gold);
+    border-radius:14px;
+    padding:26px 30px;
+    max-width:560px; width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,.6), inset 0 0 30px rgba(0,0,0,.4);
+    text-align:center;
+  }
+  .panel h1{ margin:0 0 6px; font-size:26px; color:var(--gold); text-shadow:2px 2px 0 #000;}
+  .panel h2{ margin:0 0 14px; font-size:18px; color:var(--cream); font-weight:normal; opacity:.85;}
+  .panel p{ line-height:1.5; font-size:14px; }
+  .btn{
+    background:linear-gradient(180deg,#f3c765,var(--gold));
+    color:#2a1a06; border:2px solid #7a5518;
+    padding:10px 22px; border-radius:8px; font-weight:bold; font-size:15px;
+    cursor:pointer; margin:8px 6px 0; box-shadow:0 3px 0 #7a5518;
+    transition:transform .08s;
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 0 0 #7a5518; }
+  .btn.secondary{ background:linear-gradient(180deg,#7d6a4d,#5a4a34); color:var(--cream); border-color:#3a2f1e; box-shadow:0 3px 0 #3a2f1e;}
+  .btn:disabled{ opacity:.4; cursor:default; }
+
+  .instructions{ text-align:left; font-size:13px; margin:14px 0; background:rgba(0,0,0,.25); padding:10px 14px; border-radius:8px; }
+  .instructions div{ margin:4px 0; }
+  kbd{ background:#111; border:1px solid #555; border-radius:4px; padding:1px 6px; font-size:11px; color:#fff; }
+
+  /* Question modal */
+  #qPanel{ max-width:600px; }
+  #qEmpireTag{ display:inline-block; font-size:11px; letter-spacing:1px; background:var(--gold); color:#2a1a06; padding:2px 10px; border-radius:20px; font-weight:bold; margin-bottom:8px;}
+  #qText{ font-size:17px; margin:10px 0 16px; line-height:1.4; color:#fff;}
+  .optBtn{
+    display:block; width:100%; text-align:left; margin:7px 0;
+    background:var(--panel); color:var(--cream); border:2px solid var(--gold-dim);
+    padding:10px 14px; border-radius:8px; font-size:14px; cursor:pointer;
+  }
+  .optBtn:hover{ border-color:var(--gold); background:#4a3320; }
+  .optBtn.correct{ background:var(--green); border-color:#2c6c2f; color:#fff; }
+  .optBtn.wrong{ background:var(--red); border-color:#7c2318; color:#fff; }
+  .optBtn:disabled{ cursor:default; }
+  #qFeedback{ min-height:20px; font-weight:bold; margin-top:6px; font-size:13px; }
+  #hintBox{ margin-top:10px; font-size:12.5px; font-style:italic; color:#e8d9b8; background:rgba(0,0,0,.3); border-left:3px solid var(--gold); padding:8px 10px; display:none; text-align:left; border-radius:4px;}
+
+  /* Recap carousel */
+  .factCard{ text-align:left; }
+  .factCard .qsmall{ font-size:13px; opacity:.75; margin-bottom:4px;}
+  .factCard .ans{ font-size:16px; color:var(--gold); font-weight:bold; margin-bottom:10px; }
+  .factCard .factLabel{ font-size:11px; letter-spacing:1px; color:#9fd39f; font-weight:bold; }
+  .factCard .factText{ font-size:14px; line-height:1.5; margin-top:4px; }
+  #recapNav{ display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
+  #recapDots{ display:flex; gap:6px; }
+
+  /* touch controls */
+  #touchControls{ position:absolute; inset:0; z-index:10; pointer-events:none; display:none; }
+  .tbtn{
+    position:absolute; pointer-events:auto;
+    width:64px; height:64px; border-radius:50%;
+    background:rgba(232,178,62,.28); border:2px solid rgba(255,255,255,.5);
+    display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff;
+    -webkit-user-select:none;
+  }
+  #btnLeft{ left:16px; bottom:20px; }
+  #btnRight{ left:92px; bottom:20px; }
+  #btnJump{ right:16px; bottom:20px; width:74px;height:74px; background:rgba(63,145,66,.35);}
+  #btnInteract{ right:100px; bottom:34px; width:54px; height:54px; background:rgba(192,57,43,.35); font-size:13px;}
+
+  #loadingNote{ font-size:11px; opacity:.6; margin-top:10px;}
+  ::-webkit-scrollbar{ display:none; }
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <div id="stage">
+    <canvas id="game" width="960" height="540"></canvas>
+    <div id="promptBubble"></div>
+
+    <div id="hud">
+      <div class="hud-box">
+        <div id="hudRoom">Room 1 — Mughal Empire</div>
+        <div class="progress-dots" id="hudDots"></div>
+      </div>
+      <div class="hud-box" style="text-align:right;">
+        <div>Score: <span id="hudScore">0</span></div>
+        <div class="hearts" id="hudHearts">♥ ♥ ♥</div>
+      </div>
+    </div>
+
+    <div id="touchControls">
+      <div class="tbtn" id="btnLeft">◀</div>
+      <div class="tbtn" id="btnRight">▶</div>
+      <div class="tbtn" id="btnInteract">ASK</div>
+      <div class="tbtn" id="btnJump">▲</div>
+    </div>
+
+    <!-- START -->
+    <div class="overlay show" id="overlayStart">
+      <div class="panel">
+        <h1>🏛️ KAAL YATRA: EMPIRE QUEST</h1>
+        <h2>A puzzle-platformer through India's great empires</h2>
+        <p>Explore three history-hunter rooms — <b>Mughal</b>, <b>Mauryan</b> and <b>Shatavahana</b> — each guarded by three quiz paintings. Solve them in order using the hints on the walls, dodge or stomp the wandering guardians, clear obstacles, and reach the gate before moving to the next empire.</p>
+        <div class="instructions">
+          <div>🏃 <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> — Move</div>
+          <div>⬆️ <kbd>Space</kbd> or <kbd>W</kbd> — Jump (stomp guardians from above!)</div>
+          <div>💬 <kbd>E</kbd> — Talk to a glowing painting to answer its question</div>
+          <div>🔁 Question sets reshuffle every time you replay!</div>
+        </div>
+        <button class="btn" id="startBtn">Begin the Journey ▶</button>
+        <div id="loadingNote">Works with keyboard or the on-screen touch pad on mobile.</div>
+      </div>
+    </div>
+
+    <!-- QUESTION -->
+    <div class="overlay" id="overlayQuestion">
+      <div class="panel" id="qPanel">
+        <div id="qEmpireTag">MUGHAL EMPIRE · EASY</div>
+        <div id="qText">Question text</div>
+        <div id="optsWrap"></div>
+        <div id="qFeedback"></div>
+        <div id="hintBox"></div>
+        <button class="btn secondary" id="hintBtn">💡 Show Hint</button>
+      </div>
+    </div>
+
+    <!-- RECAP -->
+    <div class="overlay" id="overlayRecap">
+      <div class="panel">
+        <h1 id="recapTitle">Room Cleared!</h1>
+        <h2 id="recapSub">Fun Fact Recap</h2>
+        <div class="factCard">
+          <div class="qsmall" id="recapQ"></div>
+          <div class="ans" id="recapA"></div>
+          <div class="factLabel">DID YOU KNOW?</div>
+          <div class="factText" id="recapFact"></div>
+        </div>
+        <div id="recapNav">
+          <button class="btn secondary" id="recapPrev">◀ Prev</button>
+          <div id="recapDots"></div>
+          <button class="btn" id="recapNext">Next ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VICTORY -->
+    <div class="overlay" id="overlayVictory">
+      <div class="panel">
+        <h1>👑 YOU HAVE MASTERED THE AGES!</h1>
+        <h2>Mughal · Mauryan · Shatavahana — conquered</h2>
+        <p>Final Score: <b id="finalScore">0</b></p>
+        <p style="opacity:.75; font-size:12.5px;">Replay to get a brand-new shuffled set of questions in every room.</p>
+        <button class="btn" id="replayBtn">Play Again 🔁</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================= CONSTANTS ============================= */
+const W = 960, H = 540;
+const GRAVITY = 0.62, JUMP_V = -13.6, MOVE_ACCEL = 0.65, MAX_SPEED = 4.4, FRICTION = 0.72;
+const GROUND_Y = 460;
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+/* ============================= AUDIO (synth, no files) ============================= */
+let actx = null;
+function beep(freq, dur, type, vol){
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = actx.createOscillator(); const g = actx.createGain();
+    o.type = type||'square'; o.frequency.value = freq;
+    g.gain.value = (vol!==undefined?vol:0.06);
+    o.connect(g); g.connect(actx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.stop(actx.currentTime + dur);
+  }catch(e){}
+}
+const SFX = {
+  jump: ()=>beep(520,0.12,'square',0.05),
+  stomp: ()=>beep(180,0.15,'square',0.07),
+  coin: ()=>{beep(880,0.08,'square',0.05); setTimeout(()=>beep(1200,0.1,'square',0.05),60);},
+  hurt: ()=>beep(120,0.25,'sawtooth',0.07),
+  correct: ()=>{beep(660,0.1,'sine',0.06); setTimeout(()=>beep(880,0.14,'sine',0.06),100); setTimeout(()=>beep(1100,0.18,'sine',0.06),210);},
+  wrong: ()=>{beep(220,0.18,'sawtooth',0.06); setTimeout(()=>beep(160,0.2,'sawtooth',0.06),120);},
+  unlock: ()=>{beep(500,0.1,'triangle',0.06); setTimeout(()=>beep(700,0.14,'triangle',0.06),90);},
+  flag: ()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.16,'triangle',0.07), i*90));}
+};
+
+/* ============================= QUESTION POOLS ============================= */
+const POOLS = {
+mughal: [
+ {q:"Who founded the Mughal Empire after the First Battle of Panipat in 1526?", opts:["Akbar","Babur","Humayun","Aurangzeb"], correct:1,
+  hint:"He was a Central Asian prince descended from both Timur and Genghis Khan.",
+  fact:"Babur's small but gunpowder-equipped army defeated Ibrahim Lodi's much larger force at Panipat in 1526, introducing field artillery to Indian warfare at scale."},
+ {q:"Which Mughal emperor built the Taj Mahal?", opts:["Akbar","Jahangir","Shah Jahan","Aurangzeb"], correct:2,
+  hint:"He built it in Agra as a mausoleum for his beloved wife.",
+  fact:"The Taj Mahal was built for Shah Jahan's wife Mumtaz Mahal and took roughly 20 years and thousands of artisans to complete."},
+ {q:"Which emperor is famous for the policy of religious tolerance called 'Sulh-i-Kul'?", opts:["Babur","Akbar","Jahangir","Aurangzeb"], correct:1,
+  hint:"He abolished the jizya tax and married into Rajput families.",
+  fact:"Akbar promoted 'peace with all' and even created a syncretic faith, Din-i-Ilahi, blending ideas from many religions practiced in his court."},
+ {q:"Which city did Akbar build as his capital, later abandoned due to water shortage?", opts:["Lahore","Fatehpur Sikri","Delhi","Agra"], correct:1,
+  hint:"Its name literally means 'City of Victory'.",
+  fact:"Fatehpur Sikri served as Akbar's capital for about 15 years before being deserted, largely because its water supply couldn't sustain the growing city."},
+ {q:"Who was the last Mughal emperor, exiled after the 1857 revolt?", opts:["Bahadur Shah II","Farrukhsiyar","Shah Alam II","Akbar II"], correct:0,
+  hint:"He was also a noted Urdu poet, writing under the pen name 'Zafar'.",
+  fact:"Bahadur Shah Zafar was exiled by the British to Rangoon (Burma) after the failed 1857 uprising, marking the formal end of Mughal rule."},
+ {q:"The Mughal Empire began after which decisive battle?", opts:["Battle of Haldighati","Battle of Plassey","First Battle of Panipat","Battle of Talikota"], correct:2,
+  hint:"It was fought near Delhi in the year 1526.",
+  fact:"At the First Battle of Panipat, Babur's use of cannons and the Tulughma flanking tactic overwhelmed Ibrahim Lodi's war elephants and larger army."}
+],
+mauryan: [
+ {q:"Who founded the Mauryan Empire around 322 BCE?", opts:["Ashoka","Chandragupta Maurya","Bindusara","Chanakya"], correct:1,
+  hint:"His mentor helped him overthrow the Nanda dynasty.",
+  fact:"Chandragupta Maurya was guided by his advisor Chanakya (Kautilya), the author of the classic statecraft treatise 'Arthashastra'."},
+ {q:"Which Mauryan emperor embraced Buddhism after the bloody Kalinga War?", opts:["Bindusara","Chandragupta","Ashoka","Dasharatha"], correct:2,
+  hint:"His edicts on rocks and pillars promoted 'Dhamma', or righteous conduct.",
+  fact:"Horrified by the bloodshed at Kalinga, Ashoka turned to Buddhism and had edicts inscribed across the empire promoting non-violence and moral governance."},
+ {q:"Who was Chandragupta Maurya's chief strategist and minister?", opts:["Chanakya","Megasthenes","Panini","Kalidasa"], correct:0,
+  hint:"He is also known by the names Kautilya and Vishnugupta.",
+  fact:"Chanakya's 'Arthashastra' is one of the world's earliest surviving texts on economics, statecraft, and military strategy."},
+ {q:"The Greek ambassador Megasthenes, who wrote 'Indica', visited the court of which ruler?", opts:["Ashoka","Chandragupta Maurya","Bindusara","Samudragupta"], correct:1,
+  hint:"He was sent by Seleucus I Nicator, a successor of Alexander the Great.",
+  fact:"Megasthenes' 'Indica' offers one of the earliest detailed foreign accounts of Indian society, administration, and the Mauryan capital Pataliputra."},
+ {q:"Ashoka's famous edicts were mainly inscribed on what?", opts:["Palm leaves","Copper plates","Rocks and pillars","Pottery"], correct:2,
+  hint:"Many still stand today, spread from Afghanistan to South India.",
+  fact:"Ashoka's rock and pillar edicts, written in Prakrit using Brahmi script, are among the oldest deciphered inscriptions in Indian history."},
+ {q:"Which iconic symbol atop an Ashokan pillar became India's national emblem?", opts:["Bull Capital","Lion Capital of Sarnath","Elephant Capital","Horse Capital"], correct:1,
+  hint:"It shows four animals back to back atop a lotus base.",
+  fact:"The Lion Capital of Sarnath, originally topping a pillar erected by Ashoka, was adopted as independent India's national emblem in 1950."}
+],
+shatavahana: [
+ {q:"The Shatavahana Empire primarily ruled which region of ancient India?", opts:["Punjab","The Deccan (south-central India)","Bengal","Kashmir"], correct:1,
+  hint:"Their territory linked the Arabian Sea coast to the eastern Deccan plateau.",
+  fact:"Controlling key trade routes across the Deccan, the Shatavahanas grew wealthy from Indo-Roman maritime trade in spices, textiles, and gems."},
+ {q:"Who is traditionally credited as the founder of the Shatavahana dynasty?", opts:["Simuka","Gautamiputra Satakarni","Hala","Vashishtiputra Pulumavi"], correct:0,
+  hint:"He rose to power as Mauryan authority in the Deccan declined.",
+  fact:"Simuka founded the Shatavahana dynasty around the 3rd century BCE, filling the power vacuum left by the weakening Mauryan Empire."},
+ {q:"Which Shatavahana king is celebrated for defeating the Western Kshatrapas (Shakas)?", opts:["Simuka","Gautamiputra Satakarni","Hala","Simuka II"], correct:1,
+  hint:"His victories are recorded in an inscription commissioned by his mother.",
+  fact:"Gautamiputra Satakarni's triumphs are recorded in the Nashik Prashasti, an inscription commissioned by his mother, Gautami Balashri."},
+ {q:"Shatavahana coinage was unusual in ancient India for commonly being made of which metal?", opts:["Gold","Lead","Silver","Bronze"], correct:1,
+  hint:"This metal was rarely used for currency by other ancient Indian dynasties.",
+  fact:"Shatavahana lead coins are historically notable because lead was an uncommon coinage metal elsewhere in ancient India, reflecting local Deccan resources."},
+ {q:"Which Prakrit poetry anthology is attributed to the Shatavahana king Hala?", opts:["Arthashastra","Gathasaptasati","Mudrarakshasa","Indica"], correct:1,
+  hint:"It's a collection of about 700 short verses on love and rural life.",
+  fact:"The 'Gathasaptasati' (Gaha Sattasai) compiles roughly 700 Prakrit verses celebrating everyday rural life and romance, attributed to King Hala."},
+ {q:"The Shatavahanas were major patrons of which religion, supporting sites like the Amaravati Stupa?", opts:["Jainism","Buddhism","Zoroastrianism","Christianity"], correct:1,
+  hint:"Their patronage helped build one of the grandest stupas in southern India.",
+  fact:"Shatavahana patronage helped the Amaravati Stupa flourish into one of the most magnificent Buddhist monuments of ancient India."}
+]
+};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* ============================= LEVEL DEFINITIONS ============================= */
+function makeRoom(cfg){ return cfg; }
+
+const ROOMS = [
+  makeRoom({
+    key:'mughal', name:"Room 1 — Mughal Empire", tag:"MUGHAL EMPIRE · EASY", width:2600,
+    sky:['#7ec8e3','#cfe9f5'], ground:'#a56b2b', groundTop:'#c98a3d', accent:'#c0392b', accent2:'#e8b23e',
+    silhouette:'dome',
+    solids:[
+      {x:0,y:GROUND_Y,w:1480,h:80},
+      {x:1620,y:GROUND_Y,w:980,h:80},
+      {x:1500,y:410,w:90,h:16},
+      {x:760,y:370,w:120,h:16},
+      {x:2150,y:360,w:110,h:16}
+    ],
+    crates:[ {x:330,y:400,w:52,h:60}, {x:960,y:400,w:52,h:60}, {x:1980,y:400,w:52,h:60} ],
+    coinBlocks:[ {x:600,y:330,hit:false}, {x:1350,y:300,hit:false}, {x:2250,y:300,hit:false} ],
+    enemies:[
+      {x:600,y:GROUND_Y-32,minX:560,maxX:760,speed:1.3},
+      {x:1780,y:GROUND_Y-32,minX:1700,maxX:1930,speed:1.5},
+      {x:2280,y:GROUND_Y-32,minX:2200,maxX:2420,speed:1.4}
+    ],
+    paintings:[ {x:470,y:290,w:64,h:88}, {x:1260,y:270,w:64,h:88}, {x:2080,y:260,w:64,h:88} ],
+    flagX:2520, startX:60
+  }),
+  makeRoom({
+    key:'mauryan', name:"Room 2 — Mauryan Empire", tag:"MAURYAN EMPIRE · MEDIUM", width:2900,
+    sky:['#e8a95e','#f6d9a8'], ground:'#8a6a45', groundTop:'#b0895c', accent:'#2f6f6b', accent2:'#e0c471',
+    silhouette:'pillar',
+    solids:[
+      {x:0,y:GROUND_Y,w:640,h:80},
+      {x:780,y:GROUND_Y,w:560,h:80},
+      {x:1480,y:GROUND_Y,w:560,h:80},
+      {x:2180,y:GROUND_Y,w:720,h:80},
+      {x:660,y:420,w:100,h:16},
+      {x:1360,y:400,w:100,h:16},
+      {x:2060,y:390,w:100,h:16},
+      {x:340,y:360,w:130,h:16},
+      {x:1750,y:330,w:130,h:16}
+    ],
+    crates:[ {x:200,y:400,w:52,h:60}, {x:900,y:400,w:52,h:60}, {x:900,y:340,w:52,h:60}, {x:1620,y:400,w:52,h:60}, {x:2320,y:400,w:52,h:60} ],
+    coinBlocks:[ {x:420,y:300,hit:false}, {x:1200,y:290,hit:false}, {x:1900,y:270,hit:false}, {x:2500,y:300,hit:false} ],
+    enemies:[
+      {x:420,y:GROUND_Y-32,minX:340,maxX:600,speed:1.5},
+      {x:1000,y:GROUND_Y-32,minX:900,maxX:1200,speed:1.6},
+      {x:1700,y:GROUND_Y-32,minX:1600,maxX:1980,speed:1.7},
+      {x:2450,y:GROUND_Y-32,minX:2350,maxX:2680,speed:1.6}
+    ],
+    paintings:[ {x:520,y:280,w:64,h:88}, {x:1440,y:260,w:64,h:88}, {x:2340,y:250,w:64,h:88} ],
+    flagX:2820, startX:60
+  }),
+  makeRoom({
+    key:'shatavahana', name:"Room 3 — Shatavahana Empire", tag:"SHATAVAHANA EMPIRE · HARD", width:3100,
+    sky:['#3e5c3e','#7fa06b'], ground:'#5c4326', groundTop:'#7a5c33', accent:'#8a3b2b', accent2:'#d9c27a',
+    silhouette:'stupa',
+    solids:[
+      {x:0,y:GROUND_Y,w:520,h:80},
+      {x:660,y:GROUND_Y,w:440,h:80},
+      {x:1240,y:GROUND_Y,w:420,h:80},
+      {x:1800,y:GROUND_Y,w:440,h:80},
+      {x:2380,y:GROUND_Y,w:720,h:80},
+      {x:540,y:410,w:100,h:16},
+      {x:1120,y:380,w:100,h:16},
+      {x:1700,y:400,w:80,h:16},
+      {x:2280,y:360,w:80,h:16},
+      {x:300,y:340,w:110,h:16},
+      {x:900,y:300,w:110,h:16},
+      {x:1500,y:320,w:110,h:16},
+      {x:2050,y:290,w:110,h:16}
+    ],
+    crates:[
+      {x:200,y:400,w:52,h:60}, {x:200,y:340,w:52,h:60},
+      {x:780,y:400,w:52,h:60},
+      {x:1360,y:400,w:52,h:60}, {x:1360,y:340,w:52,h:60},
+      {x:1920,y:400,w:52,h:60},
+      {x:2500,y:400,w:52,h:60}, {x:2620,y:400,w:52,h:60}
+    ],
+    coinBlocks:[ {x:400,y:280,hit:false}, {x:1000,y:250,hit:false}, {x:1600,y:270,hit:false}, {x:2150,y:240,hit:false}, {x:2700,y:280,hit:false} ],
+    enemies:[
+      {x:300,y:GROUND_Y-32,minX:220,maxX:470,speed:1.7},
+      {x:900,y:GROUND_Y-32,minX:800,maxX:1080,speed:1.8},
+      {x:1450,y:GROUND_Y-32,minX:1350,maxX:1640,speed:1.9},
+      {x:2000,y:GROUND_Y-32,minX:1900,maxX:2200,speed:1.8},
+      {x:2600,y:GROUND_Y-32,minX:2500,maxX:2900,speed:2.0}
+    ],
+    paintings:[ {x:560,y:280,w:64,h:88}, {x:1560,y:260,w:64,h:88}, {x:2560,y:240,w:64,h:88} ],
+    flagX:3020, startX:60
+  })
+];
+
+/* ============================= GAME STATE ============================= */
+let state = 'START'; // START, PLAYING, QUESTION, RECAP, VICTORY
+let roomIndex = 0;
+let score = 0;
+let lives = 3;
+let camX = 0;
+let frame = 0;
+let activePaintingIdx = -1;
+let recapIndex = 0;
+
+let level = null; // current room runtime data (deep copy w/ questions assigned)
+let player = null;
+
+const keys = {};
+
+function initRoomRuntime(idx){
+  const base = ROOMS[idx];
+  const pool = shuffle(POOLS[base.key]).slice(0,3);
+  const paintings = base.paintings.map((p,i)=>({
+    x:p.x,y:p.y,w:p.w,h:p.h,
+    locked: i>0,
+    answered: false,
+    question: pool[i]
+  }));
+  const enemies = base.enemies.map(e=>({...e, alive:true, dir: 1, squishT:0}));
+  const coinBlocks = base.coinBlocks.map(c=>({...c}));
+  level = {
+    ...base,
+    paintings, enemies, coinBlocks,
+    checkpointX: base.startX,
+    flagUnlocked:false
+  };
+  player = {
+    x: base.startX, y: GROUND_Y-48, w:30, h:48, vx:0, vy:0, onGround:false,
+    facing:1, invT:0, animT:0
+  };
+  camX = 0;
+  lives = 3;
+  activePaintingIdx = -1;
+  updateHUD();
+}
+
+/* ============================= INPUT ============================= */
+window.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  if(e.code==='KeyE' && state==='PLAYING') tryInteract();
+});
+window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+function bindTouch(id, onDown, onUp){
+  const el = document.getElementById(id);
+  const down = ev=>{ ev.preventDefault(); onDown(); };
+  const up = ev=>{ ev.preventDefault(); onUp&&onUp(); };
+  el.addEventListener('touchstart', down, {passive:false});
+  el.addEventListener('touchend', up, {passive:false});
+  el.addEventListener('mousedown', down);
+  el.addEventListener('mouseup', up);
+  el.addEventListener('mouseleave', up);
+}
+bindTouch('btnLeft', ()=>keys['ArrowLeft']=true, ()=>keys['ArrowLeft']=false);
+bindTouch('btnRight', ()=>keys['ArrowRight']=true, ()=>keys['ArrowRight']=false);
+bindTouch('btnJump', ()=>keys['Space']=true, ()=>keys['Space']=false);
+bindTouch('btnInteract', ()=>{ if(state==='PLAYING') tryInteract(); }, ()=>{});
+
+if('ontouchstart' in window){ document.getElementById('touchControls').style.display='block'; }
+
+/* ============================= PHYSICS / COLLISION ============================= */
+function rectsOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function allSolids(){
+  const list = level.solids.slice();
+  level.crates.forEach(c=>list.push(c));
+  return list;
+}
+
+function moveAndCollide(){
+  const solids = allSolids();
+  // Horizontal
+  player.x += player.vx;
+  for(const s of solids){
+    if(rectsOverlap(player, s)){
+      if(player.vx>0) player.x = s.x - player.w;
+      else if(player.vx<0) player.x = s.x + s.w;
+      player.vx = 0;
+    }
+  }
+  if(player.x < 0) player.x = 0;
+  if(player.x > level.width - player.w) player.x = level.width - player.w;
+
+  // Vertical
+  player.y += player.vy;
+  player.onGround = false;
+  for(const s of solids){
+    if(rectsOverlap(player, s)){
+      if(player.vy>0){ player.y = s.y - player.h; player.vy=0; player.onGround=true; }
+      else if(player.vy<0){ player.y = s.y + s.h; player.vy=0; }
+    }
+  }
+  // coin blocks act like small solids only when hit from below
+  for(const cb of level.coinBlocks){
+    const rect = {x:cb.x,y:cb.y,w:36,h:24};
+    if(rectsOverlap(player, rect) && player.vy < 0){
+      player.y = rect.y+rect.h; player.vy = 2;
+      if(!cb.hit){ cb.hit = true; score += 10; SFX.coin(); updateHUD(); }
+    } else if(rectsOverlap(player, rect) && player.vy >= 0 && player.y+player.h - player.vy <= rect.y+2){
+      player.y = rect.y - player.h; player.vy = 0; player.onGround = true;
+    }
+  }
+}
+
+function respawnPlayer(){
+  player.x = level.checkpointX; player.y = GROUND_Y-200; player.vx=0; player.vy=0; player.invT=60;
+}
+
+function loseLife(){
+  lives--; updateHUD(); SFX.hurt();
+  if(lives<=0){
+    initRoomRuntime(roomIndex);
+  } else {
+    respawnPlayer();
+  }
+}
+
+/* ============================= UPDATE ============================= */
+function tryInteract(){
+  const p = level.paintings[activePaintingIdx];
+  if(!p || p.locked || p.answered) return;
+  openQuestion(activePaintingIdx);
+}
+
+function update(){
+  frame++;
+  // input -> horizontal accel
+  let left = keys['ArrowLeft']||keys['KeyA'];
+  let right = keys['ArrowRight']||keys['KeyD'];
+  if(left && !right){ player.vx -= MOVE_ACCEL; player.facing=-1; }
+  else if(right && !left){ player.vx += MOVE_ACCEL; player.facing=1; }
+  else { player.vx *= FRICTION; if(Math.abs(player.vx)<0.05) player.vx=0; }
+  if(player.vx>MAX_SPEED) player.vx=MAX_SPEED;
+  if(player.vx<-MAX_SPEED) player.vx=-MAX_SPEED;
+
+  const jumpPressed = keys['Space']||keys['ArrowUp']||keys['KeyW'];
+  if(jumpPressed && player.onGround){
+    player.vy = JUMP_V; player.onGround=false; SFX.jump();
+  }
+
+  player.vy += GRAVITY;
+  if(player.vy>16) player.vy=16;
+
+  moveAndCollide();
+
+  if(player.invT>0) player.invT--;
+
+  // fell into pit
+  if(player.y > H + 40){ loseLife(); }
+
+  // enemies
+  for(const en of level.enemies){
+    if(!en.alive) continue;
+    en.x += en.dir*en.speed;
+    if(en.x < en.minX){ en.x=en.minX; en.dir=1; }
+    if(en.x > en.maxX){ en.x=en.maxX; en.dir=-1; }
+    const eRect = {x:en.x, y:en.y, w:32, h:32};
+    const pRect = {x:player.x, y:player.y, w:player.w, h:player.h};
+    if(rectsOverlap(pRect, eRect)){
+      const playerBottom = player.y+player.h;
+      const stomping = player.vy>0 && (playerBottom - en.y) < 18;
+      if(stomping){
+        en.alive=false; score+=50; updateHUD(); SFX.stomp();
+        player.vy = -9;
+      } else if(player.invT<=0){
+        loseLife(); player.invT=70;
+      }
+    }
+  }
+
+  // camera
+  const targetCam = player.x - W/2 + player.w/2;
+  camX = Math.max(0, Math.min(level.width - W, targetCam));
+
+  // painting proximity + lock states
+  activePaintingIdx = -1;
+  for(let i=0;i<level.paintings.length;i++){
+    const p = level.paintings[i];
+    const dist = Math.abs((player.x+player.w/2) - (p.x+p.w/2));
+    if(dist < 70 && !p.locked && !p.answered){ activePaintingIdx = i; }
+  }
+  showPrompt();
+
+  // flag unlock check
+  const allAnswered = level.paintings.every(p=>p.answered);
+  if(allAnswered && !level.flagUnlocked){ level.flagUnlocked = true; SFX.unlock(); }
+
+  if(level.flagUnlocked){
+    const flagRect = {x:level.flagX-10, y:GROUND_Y-140, w:24, h:140};
+    const pRect = {x:player.x, y:player.y, w:player.w, h:player.h};
+    if(rectsOverlap(pRect, flagRect)){
+      SFX.flag();
+      openRecap();
+    }
+  }
+
+  player.animT += Math.abs(player.vx)*0.25 + 0.02;
+}
+
+function showPrompt(){
+  const bubble = document.getElementById('promptBubble');
+  if(activePaintingIdx>=0){
+    const p = level.paintings[activePaintingIdx];
+    const sx = (p.x + p.w/2) - camX;
+    const sy = p.y - 8;
+    bubble.style.left = sx+'px';
+    bubble.style.top = sy+'px';
+    bubble.textContent = 'Press E to Answer';
+    bubble.style.display='block';
+  } else {
+    bubble.style.display='none';
+  }
+}
+
+/* ============================= RENDER ============================= */
+function drawBackground(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, level.sky[0]); g.addColorStop(1, level.sky[1]);
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // clouds (parallax slow)
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  for(let i=0;i<6;i++){
+    const bx = ((i*420) - camX*0.25) % (level.width+400) - 200;
+    drawCloud(bx, 60+ (i%3)*30);
+  }
+
+  // silhouettes (parallax medium)
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  for(let i=0;i<10;i++){
+    const bx = ((i*300) - camX*0.5) % (level.width+300) - 150;
+    if(level.silhouette==='dome') drawDome(bx, GROUND_Y);
+    else if(level.silhouette==='pillar') drawPillar(bx, GROUND_Y);
+    else drawStupa(bx, GROUND_Y);
+  }
+}
+function drawCloud(x,y){
+  ctx.beginPath();
+  ctx.ellipse(x,y,26,14,0,0,Math.PI*2);
+  ctx.ellipse(x+22,y+4,20,12,0,0,Math.PI*2);
+  ctx.ellipse(x-20,y+5,18,11,0,0,Math.PI*2);
+  ctx.fill();
+}
+function drawDome(x,y){
+  ctx.beginPath();
+  ctx.arc(x,y-60,46,Math.PI,0);
+  ctx.fillRect(x-46,y-60,92,60);
+  ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y-108,6,0,Math.PI*2); ctx.fill();
+}
+function drawPillar(x,y){
+  ctx.fillRect(x-8,y-140,16,140);
+  ctx.fillRect(x-16,y-150,32,12);
+}
+function drawStupa(x,y){
+  ctx.beginPath();
+  ctx.arc(x,y-70,50,Math.PI,0);
+  ctx.fill();
+  ctx.fillRect(x-6,y-140,12,30);
+}
+
+function drawGround(){
+  for(const s of level.solids){
+    drawBlock(s.x-camX, s.y, s.w, s.h, s===level.solids[0]||s===level.solids[1]);
+  }
+}
+function drawBlock(x,y,w,h, isGround){
+  if(x+w<0 || x>W) return;
+  ctx.fillStyle = level.groundTop;
+  ctx.fillRect(x,y,w,10);
+  ctx.fillStyle = level.ground;
+  ctx.fillRect(x,y+10,w,h-10);
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth=1;
+  for(let i=0;i<w;i+=28){
+    ctx.strokeRect(x+i,y+10,28,20);
+  }
+}
+
+function drawCrates(){
+  for(const c of level.crates){
+    const x = c.x-camX;
+    if(x+c.w<0||x>W) continue;
+    ctx.fillStyle = level.accent;
+    ctx.fillRect(x,c.y,c.w,c.h);
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth=2;
+    ctx.strokeRect(x+2,c.y+2,c.w-4,c.h-4);
+    ctx.beginPath();
+    ctx.moveTo(x+2,c.y+2); ctx.lineTo(x+c.w-2,c.y+c.h-2);
+    ctx.moveTo(x+c.w-2,c.y+2); ctx.lineTo(x+2,c.y+c.h-2);
+    ctx.stroke();
+  }
+}
+
+function drawCoinBlocks(){
+  for(const cb of level.coinBlocks){
+    const x = cb.x-camX;
+    if(x+36<0||x>W) continue;
+    ctx.fillStyle = cb.hit? '#7a5c33' : level.accent2;
+    ctx.fillRect(x,cb.y,36,24);
+    ctx.strokeStyle = '#000'; ctx.lineWidth=2; ctx.strokeRect(x,cb.y,36,24);
+    if(!cb.hit){
+      ctx.fillStyle = '#5a3a10'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('?', x+18, cb.y+18);
+    }
+  }
+}
+
+function drawPaintings(){
+  for(let i=0;i<level.paintings.length;i++){
+    const p = level.paintings[i];
+    const x = p.x-camX;
+    if(x+p.w<0||x>W) continue;
+    // frame post
+    ctx.fillStyle = '#5a3d20';
+    ctx.fillRect(x+p.w/2-6, p.y+p.h, 12, GROUND_Y-(p.y+p.h));
+    // frame
+    const glow = (i===activePaintingIdx);
+    ctx.save();
+    if(glow){
+      ctx.shadowColor = '#fff8d0'; ctx.shadowBlur = 22;
+    }
+    ctx.fillStyle = p.answered ? '#e8b23e' : (p.locked ? '#4a4038' : '#c99a3f');
+    ctx.fillRect(x,p.y,p.w,p.h);
+    ctx.restore();
+    ctx.strokeStyle = '#2a1a06'; ctx.lineWidth=4;
+    ctx.strokeRect(x,p.y,p.w,p.h);
+    // inner content
+    ctx.fillStyle = p.locked ? '#2c2620' : (p.answered? '#fff4d6':'#3a2a12');
+    ctx.fillRect(x+8,p.y+8,p.w-16,p.h-16);
+
+    ctx.textAlign='center'; ctx.font='bold 26px sans-serif';
+    if(p.locked){ ctx.fillStyle='#8a8072'; ctx.fillText('🔒', x+p.w/2, p.y+p.h/2+10); }
+    else if(p.answered){ ctx.fillStyle='#2c6c2f'; ctx.fillText('✓', x+p.w/2, p.y+p.h/2+10); }
+    else { ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif'; ctx.fillText('?', x+p.w/2, p.y+p.h/2+8); }
+
+    // number tag
+    ctx.fillStyle='#111'; ctx.font='bold 11px sans-serif';
+    ctx.fillText('Q'+(i+1), x+p.w/2, p.y-6);
+  }
+}
+
+function drawEnemies(){
+  for(const en of level.enemies){
+    if(!en.alive) continue;
+    const x = en.x-camX;
+    if(x+32<0||x>W) continue;
+    ctx.save();
+    ctx.translate(x+16, en.y+16);
+    ctx.scale(en.dir*-1,1);
+    // body
+    ctx.fillStyle = '#6b3fa0';
+    ctx.beginPath();
+    ctx.moveTo(-16,16); ctx.quadraticCurveTo(-16,-16,0,-16); ctx.quadraticCurveTo(16,-16,16,16);
+    ctx.closePath(); ctx.fill();
+    // feet
+    ctx.fillStyle='#3a1f5c';
+    ctx.fillRect(-14,12,10,6); ctx.fillRect(4,12,10,6);
+    // eyes
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.ellipse(-6,-2,4,5,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6,-2,4,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(-5,-1,2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7,-1,2,0,Math.PI*2); ctx.fill();
+    // brows (angry)
+    ctx.strokeStyle='#000'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(-11,-9); ctx.lineTo(-2,-6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(11,-9); ctx.lineTo(2,-6); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawFlag(){
+  const x = level.flagX-camX;
+  if(x<-40||x>W+40) return;
+  ctx.fillStyle = '#8a6a45';
+  ctx.fillRect(x-3, GROUND_Y-140, 6, 140);
+  ctx.fillStyle = level.flagUnlocked? '#e8b23e' : '#555';
+  ctx.beginPath();
+  ctx.moveTo(x+3, GROUND_Y-140);
+  ctx.lineTo(x+3+ (level.flagUnlocked? 46:30), GROUND_Y-140+ (level.flagUnlocked?14:10) + Math.sin(frame*0.1)*3);
+  ctx.lineTo(x+3, GROUND_Y-140+28);
+  ctx.closePath(); ctx.fill();
+  if(level.flagUnlocked){
+    ctx.font='bold 11px sans-serif'; ctx.fillStyle='#2a1a06'; ctx.textAlign='center';
+    ctx.fillText('GATE', x, GROUND_Y-150);
+  } else {
+    ctx.font='bold 16px sans-serif'; ctx.fillStyle='#fff'; ctx.textAlign='center';
+    ctx.fillText('🔒', x, GROUND_Y-150);
+  }
+}
+
+function drawPlayer(){
+  const x = player.x-camX, y = player.y;
+  if(player.invT>0 && Math.floor(frame/4)%2===0) return; // blink when invincible
+  ctx.save();
+  ctx.translate(x+player.w/2, y);
+  ctx.scale(player.facing,1);
+
+  const legSwing = player.onGround ? Math.sin(player.animT*3)*8 : 0;
+  const bob = player.onGround ? 0 : -2;
+
+  // backpack
+  ctx.fillStyle = '#5a3a1e';
+  ctx.fillRect(-13,14+bob,8,16);
+
+  // legs
+  ctx.fillStyle = '#274b8c';
+  ctx.fillRect(-8+legSwing*0.15, 34+bob, 7, 14);
+  ctx.fillRect(1-legSwing*0.15, 34+bob, 7, 14);
+  // shoes
+  ctx.fillStyle = '#3a2410';
+  ctx.fillRect(-9+legSwing*0.15, 46+bob, 9, 5);
+  ctx.fillRect(0-legSwing*0.15, 46+bob, 9, 5);
+
+  // body / overalls
+  ctx.fillStyle = '#3667c2';
+  ctx.fillRect(-11,16+bob,22,20);
+  ctx.fillStyle='#e8b23e';
+  ctx.fillRect(-11,16+bob,22,4);
+
+  // arms
+  ctx.fillStyle = '#d99a63';
+  ctx.fillRect(9, 18+bob, 6, 14);
+  ctx.fillRect(-15, 18+bob, 6, 14);
+
+  // head
+  ctx.fillStyle = '#e0a978';
+  ctx.beginPath(); ctx.ellipse(0, 4+bob, 11, 11, 0, 0, Math.PI*2); ctx.fill();
+
+  // cap
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath();
+  ctx.arc(0,-2+bob,11,Math.PI,0);
+  ctx.fill();
+  ctx.fillRect(-11,-2+bob,26,4);
+  ctx.fillStyle='#e8b23e';
+  ctx.beginPath(); ctx.arc(0,-2+bob,3,0,Math.PI*2); ctx.fill();
+
+  // face
+  ctx.fillStyle='#241608';
+  ctx.beginPath(); ctx.arc(4,3+bob,1.6,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#241608'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(2,9+bob); ctx.lineTo(8,9+bob); ctx.stroke();
+
+  ctx.restore();
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  if(!level){ return; }
+  drawBackground();
+  drawGround();
+  drawCrates();
+  drawCoinBlocks();
+  drawPaintings();
+  drawFlag();
+  drawEnemies();
+  drawPlayer();
+}
+
+/* ============================= HUD ============================= */
+function updateHUD(){
+  document.getElementById('hudScore').textContent = score;
+  document.getElementById('hudHearts').textContent = '♥ '.repeat(Math.max(lives,0)).trim() || '—';
+  if(level){
+    document.getElementById('hudRoom').textContent = ROOMS[roomIndex].name;
+    const dotsWrap = document.getElementById('hudDots');
+    dotsWrap.innerHTML='';
+    level.paintings.forEach((p,i)=>{
+      const d = document.createElement('div');
+      d.className = 'dot' + (p.answered?' on':'') + (i===activePaintingIdx?' active':'');
+      dotsWrap.appendChild(d);
+    });
+  }
+}
+
+/* ============================= QUESTION MODAL ============================= */
+function openQuestion(idx){
+  state = 'QUESTION';
+  const p = level.paintings[idx];
+  const q = p.question;
+  document.getElementById('qEmpireTag').textContent = ROOMS[roomIndex].tag;
+  document.getElementById('qText').textContent = 'Q'+(idx+1)+'. ' + q.q;
+  const wrap = document.getElementById('optsWrap');
+  wrap.innerHTML='';
+  document.getElementById('qFeedback').textContent='';
+  const hintBox = document.getElementById('hintBox');
+  hintBox.style.display='none'; hintBox.textContent = '💡 ' + q.hint;
+
+  let answered = false;
+  q.opts.forEach((opt,i)=>{
+    const b = document.createElement('button');
+    b.className='optBtn'; b.textContent = opt;
+    b.onclick = ()=>{
+      if(answered) return;
+      if(i===q.correct){
+        answered = true;
+        b.classList.add('correct');
+        document.getElementById('qFeedback').style.color = '#7ee08a';
+        document.getElementById('qFeedback').textContent = 'Correct! ✓';
+        SFX.correct();
+        score += 100; updateHUD();
+        p.answered = true; p.locked = false;
+        if(idx+1 < level.paintings.length) level.paintings[idx+1].locked = false;
+        setTimeout(()=>{ closeQuestion(); SFX.unlock(); }, 950);
+        Array.from(wrap.children).forEach(c=>c.disabled=true);
+      } else {
+        b.classList.add('wrong'); b.disabled=true;
+        document.getElementById('qFeedback').style.color = '#ff8f7a';
+        document.getElementById('qFeedback').textContent = 'Not quite — try again!';
+        SFX.wrong();
+        hintBox.style.display='block';
+      }
+    };
+    wrap.appendChild(b);
+  });
+
+  document.getElementById('overlayQuestion').classList.add('show');
+}
+function closeQuestion(){
+  document.getElementById('overlayQuestion').classList.remove('show');
+  state = 'PLAYING';
+  updateHUD();
+}
+document.getElementById('hintBtn').onclick = ()=>{
+  document.getElementById('hintBox').style.display='block';
+};
+
+/* ============================= RECAP ============================= */
+function openRecap(){
+  state = 'RECAP';
+  recapIndex = 0;
+  document.getElementById('recapTitle').textContent = '🎉 ' + ROOMS[roomIndex].name.split('—')[1].trim() + ' Cleared!';
+  document.getElementById('recapSub').textContent = 'Fun Fact Recap';
+  renderRecapCard();
+  document.getElementById('overlayRecap').classList.add('show');
+}
+function renderRecapCard(){
+  const q = level.paintings[recapIndex].question;
+  document.getElementById('recapQ').textContent = 'Q'+(recapIndex+1)+'. ' + q.q;
+  document.getElementById('recapA').textContent = 'Answer: ' + q.opts[q.correct];
+  document.getElementById('recapFact').textContent = q.fact;
+  const dotsWrap = document.getElementById('recapDots');
+  dotsWrap.innerHTML='';
+  level.paintings.forEach((p,i)=>{
+    const d = document.createElement('div');
+    d.className='dot' + (i===recapIndex?' active':'') + (i<recapIndex?' on':'');
+    dotsWrap.appendChild(d);
+  });
+  document.getElementById('recapPrev').disabled = recapIndex===0;
+  const isLast = recapIndex === level.paintings.length-1;
+  document.getElementById('recapNext').textContent = isLast ? (roomIndex<ROOMS.length-1? 'Next Empire ▶' : 'Finish Quest 🏆') : 'Next ▶';
+}
+document.getElementById('recapPrev').onclick = ()=>{ if(recapIndex>0){ recapIndex--; renderRecapCard(); } };
+document.getElementById('recapNext').onclick = ()=>{
+  const isLast = recapIndex === level.paintings.length-1;
+  if(!isLast){ recapIndex++; renderRecapCard(); return; }
+  document.getElementById('overlayRecap').classList.remove('show');
+  if(roomIndex < ROOMS.length-1){
+    roomIndex++;
+    initRoomRuntime(roomIndex);
+    state = 'PLAYING';
+  } else {
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('overlayVictory').classList.add('show');
+    state = 'VICTORY';
+  }
+};
+
+/* ============================= START / RESTART ============================= */
+document.getElementById('startBtn').onclick = ()=>{
+  document.getElementById('overlayStart').classList.remove('show');
+  roomIndex = 0; score = 0;
+  initRoomRuntime(roomIndex);
+  state = 'PLAYING';
+  if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+};
+document.getElementById('replayBtn').onclick = ()=>{
+  document.getElementById('overlayVictory').classList.remove('show');
+  roomIndex = 0; score = 0;
+  initRoomRuntime(roomIndex);
+  state = 'PLAYING';
+};
+
+/* ============================= MAIN LOOP ============================= */
+function loop(){
+  requestAnimationFrame(loop);
+  if(state==='PLAYING') update();
+  render();
+}
+loop();
+
+})();
+</script>
+</body>
+</html>

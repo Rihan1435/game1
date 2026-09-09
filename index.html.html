@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Empires of Time</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IM+Fell+English+SC&family=Work+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --accent:#c99a3e;
+    --panel-bg:#1b120c;
+    --panel-edge:#c99a3e;
+    --ink:#f4e9d8;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:#0a0a0f;
+    font-family:'Work Sans',sans-serif;
+    color:var(--ink);
+    overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+    touch-action:none;
+  }
+  #stage{
+    position:relative;
+    width:900px;height:480px;
+    margin:0 auto;
+    top:50%;transform:translateY(-50%);
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+    border:4px solid #000;
+    border-radius:6px;
+    overflow:hidden;
+    background:#000;
+  }
+  canvas{display:block;image-rendering:pixelated;}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:absolute;top:0;left:0;right:0;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:10px 14px;
+    font-family:'Press Start 2P',monospace;
+    font-size:11px;
+    pointer-events:none;
+    text-shadow:2px 2px 0 #000;
+    z-index:5;
+  }
+  #hud .block{
+    background:rgba(0,0,0,.35);
+    border:2px solid rgba(255,255,255,.25);
+    border-radius:4px;
+    padding:6px 10px;
+    line-height:1.9;
+  }
+  #hearts span{margin-right:3px;}
+  #progressDots{margin-top:4px;}
+  #progressDots i{
+    display:inline-block;width:9px;height:9px;border-radius:50%;
+    margin-right:6px;border:2px solid var(--ink);
+    background:transparent;
+  }
+  #progressDots i.solved{background:var(--accent);}
+
+  /* ---------- overlays (shared) ---------- */
+  .overlay{
+    position:absolute;inset:0;
+    display:none;
+    align-items:center;justify-content:center;
+    background:rgba(6,4,2,.72);
+    z-index:20;
+    padding:20px;
+  }
+  .overlay.show{display:flex;}
+  .panel{
+    background:var(--panel-bg);
+    border:3px solid var(--panel-edge);
+    border-radius:10px;
+    box-shadow:0 0 0 5px rgba(0,0,0,.4), 0 20px 40px rgba(0,0,0,.5);
+    max-width:640px;width:100%;
+    max-height:92%;
+    overflow-y:auto;
+    padding:26px 28px;
+    position:relative;
+  }
+  .panel::-webkit-scrollbar{width:8px;}
+  .panel::-webkit-scrollbar-thumb{background:var(--panel-edge);border-radius:4px;}
+
+  .eyebrow{
+    font-family:'Press Start 2P',monospace;
+    font-size:10px;
+    color:var(--accent);
+    letter-spacing:.5px;
+    margin:0 0 10px 0;
+  }
+  h1.title{
+    font-family:'IM Fell English SC',serif;
+    font-size:38px;
+    margin:0 0 6px 0;
+    color:var(--ink);
+    line-height:1.1;
+  }
+  h2.title{
+    font-family:'IM Fell English SC',serif;
+    font-size:28px;
+    margin:0 0 10px 0;
+    color:var(--ink);
+  }
+  p.lede{font-size:15px;line-height:1.55;color:#d8c9ad;margin:0 0 18px 0;}
+
+  .btn{
+    font-family:'Press Start 2P',monospace;
+    font-size:11px;
+    color:#1b120c;
+    background:var(--accent);
+    border:none;
+    padding:12px 18px;
+    border-radius:6px;
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,.35);
+    transition:transform .05s ease;
+  }
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35);}
+  .btn.secondary{background:transparent;color:var(--ink);border:2px solid var(--accent);box-shadow:none;}
+
+  .keyrow{display:flex;gap:18px;margin:14px 0 20px 0;flex-wrap:wrap;}
+  .keyrow .key{
+    display:flex;align-items:center;gap:8px;font-size:13px;color:#d8c9ad;
+  }
+  .keycap{
+    font-family:'Press Start 2P',monospace;font-size:9px;
+    background:#000;border:2px solid var(--accent);border-radius:4px;
+    padding:5px 7px;color:var(--ink);
+  }
+
+  /* question modal */
+  #questionPanel .qmeta{display:flex;justify-content:space-between;align-items:center;}
+  #questionText{font-size:18px;line-height:1.4;margin:14px 0 16px 0;color:var(--ink);}
+  #optionsList{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .option{
+    text-align:left;
+    font-size:14px;
+    background:#2a1c12;
+    border:2px solid #4a3620;
+    color:var(--ink);
+    padding:12px 14px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .option:hover{border-color:var(--accent);}
+  .option.correct{background:#2e5c34;border-color:#7fd88f;}
+  .option.wrong{background:#5c2e2e;border-color:#d87f7f;}
+  .option:disabled{cursor:default;opacity:.85;}
+  .hintBox{
+    display:flex;gap:10px;background:#241a10;border:2px dashed var(--accent);
+    border-radius:6px;padding:10px 12px;font-size:13px;color:#e8d9b8;margin-bottom:8px;
+  }
+  .feedback{min-height:20px;font-size:13px;font-weight:600;margin-bottom:6px;}
+  .feedback.good{color:#8ee39b;}
+  .feedback.bad{color:#e88e8e;}
+
+  /* recap */
+  .cards{display:grid;grid-template-columns:1fr;gap:12px;margin:14px 0 20px 0;}
+  .flipcard{
+    background:#241a10;border:2px solid #4a3620;border-radius:8px;
+    padding:14px 16px;cursor:pointer;
+  }
+  .flipcard .front{font-size:13px;color:var(--accent);font-family:'Press Start 2P',monospace;}
+  .flipcard .back{display:none;font-size:14px;line-height:1.5;margin-top:8px;color:#e8d9b8;}
+  .flipcard.open .back{display:block;}
+  .flipcard .front small{display:block;color:#d8c9ad;font-family:'Work Sans',sans-serif;font-size:13px;margin-top:6px;}
+
+  /* toast */
+  #toast{
+    position:absolute;left:50%;top:70px;transform:translateX(-50%);
+    background:rgba(0,0,0,.7);border:2px solid var(--accent);border-radius:6px;
+    padding:8px 14px;font-size:12px;font-family:'Press Start 2P',monospace;
+    opacity:0;transition:opacity .2s ease;pointer-events:none;z-index:10;
+    white-space:nowrap;
+  }
+  #toast.show{opacity:1;}
+
+  /* touch controls */
+  #touchControls{
+    position:absolute;bottom:14px;left:0;right:0;
+    display:none;justify-content:space-between;padding:0 16px;z-index:8;
+  }
+  #touchControls.on{display:flex;}
+  .tbtn{
+    width:64px;height:64px;border-radius:50%;
+    background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.35);
+    color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;
+  }
+  .tgroup{display:flex;gap:14px;}
+
+  #hint-footer{font-size:12px;color:#a8987b;margin-top:2px;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="900" height="480"></canvas>
+
+  <div id="hud">
+    <div class="block">
+      <div id="hearts"></div>
+      <div id="progressDots"></div>
+    </div>
+    <div class="block" style="text-align:right;">
+      <div id="roomLabel">ROOM 1 · EASY</div>
+      <div id="scoreLabel" style="margin-top:4px;">SCORE 0</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- START SCREEN -->
+  <div class="overlay show" id="startOverlay">
+    <div class="panel">
+      <p class="eyebrow">A HISTORY PLATFORM-PUZZLER · BUILT FOR THE HACKATHON</p>
+      <h1 class="title">Empires of Time</h1>
+      <p class="lede">Three chambers, three empires. Run, jump and stomp your way past wandering guardian-bots and pit traps, then stand before each painting to answer the question sealed inside it. Answer right and the next painting is revealed. Clear all three in a room to unlock a fun-fact recap before the next empire opens.</p>
+      <div class="keyrow">
+        <div class="key"><span class="keycap">&larr; &rarr;</span> move</div>
+        <div class="key"><span class="keycap">SPACE</span> jump</div>
+        <div class="key"><span class="keycap">jump on a bot</span> defeat it</div>
+        <div class="key"><span class="keycap">touch a painting</span> answer</div>
+      </div>
+      <button class="btn" id="startBtn">Start expedition</button>
+    </div>
+  </div>
+
+  <!-- QUESTION MODAL -->
+  <div class="overlay" id="questionOverlay">
+    <div class="panel" id="questionPanel">
+      <div class="qmeta">
+        <p class="eyebrow" id="qEyebrow">MAURYAN EMPIRE · PAINTING 1</p>
+      </div>
+      <h2 class="title" id="qTitle">Question</h2>
+      <div id="questionText"></div>
+      <div id="optionsList"></div>
+      <div class="hintBox">💡&nbsp;<span id="hintText"></span></div>
+      <div class="feedback" id="qFeedback"></div>
+    </div>
+  </div>
+
+  <!-- RECAP MODAL -->
+  <div class="overlay" id="recapOverlay">
+    <div class="panel">
+      <p class="eyebrow" id="recapEyebrow">ROOM CLEARED</p>
+      <h2 class="title" id="recapTitle">Recap &amp; Fun Facts</h2>
+      <p class="lede">Tap each plaque to reveal what the painting was really about.</p>
+      <div class="cards" id="recapCards"></div>
+      <button class="btn" id="recapContinueBtn">Continue</button>
+    </div>
+  </div>
+
+  <!-- GAME COMPLETE -->
+  <div class="overlay" id="completeOverlay">
+    <div class="panel">
+      <p class="eyebrow">EXPEDITION COMPLETE</p>
+      <h1 class="title">All three empires uncovered</h1>
+      <p class="lede" id="completeSummary"></p>
+      <button class="btn" id="playAgainBtn">Play again — new questions</button>
+    </div>
+  </div>
+
+  <div id="touchControls">
+    <div class="tgroup">
+      <div class="tbtn" id="tLeft">&larr;</div>
+      <div class="tbtn" id="tRight">&rarr;</div>
+    </div>
+    <div class="tgroup">
+      <div class="tbtn" id="tJump">&uarr;</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+const CW = 900, CH = 480;
+const GROUND_Y = 400;
+const GRAVITY = 0.48;
+const JUMP_V = -11.2;
+const MAX_SPEED = 2.6;
+const ACCEL = 0.35;
+const FRICTION = 0.82;
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+/* =========================================================
+   QUESTION POOLS  (6 per room; 3 sampled each playthrough)
+========================================================= */
+const POOLS = {
+  mauryan: [
+    {q:"Who founded the Mauryan Empire around 322 BCE?", options:["Ashoka","Chandragupta Maurya","Bindusara","Chanakya"], correct:1,
+     hint:"He rose to power with the guidance of a clever strategist-teacher.",
+     fact:"Chandragupta Maurya founded the empire around 322 BCE, later uniting most of the Indian subcontinent under one throne."},
+    {q:"Who wrote the Arthashastra, a treatise on statecraft and economics?", options:["Megasthenes","Ashoka","Chanakya (Kautilya)","Bindusara"], correct:2,
+     hint:"He was Chandragupta's chief advisor and is sometimes called India's Machiavelli.",
+     fact:"Chanakya, also known as Kautilya, wrote the Arthashastra — a detailed manual on politics, economics and military strategy."},
+    {q:"What was the capital city of the Mauryan Empire?", options:["Pataliputra","Delhi","Ujjain","Taxila"], correct:0,
+     hint:"It sat on the Ganges and its ruins lie beneath a modern Bihar city.",
+     fact:"Pataliputra, near modern-day Patna, was the grand capital of the Mauryan Empire."},
+    {q:"Which war led Emperor Ashoka to renounce violence and embrace Buddhism?", options:["Battle of Panipat","Battle of Kalinga","Battle of Hydaspes","Battle of Plassey"], correct:1,
+     hint:"It was fought against a kingdom on India's eastern coast, around 261 BCE.",
+     fact:"The bloodshed of the Kalinga War (c. 261 BCE) so moved Ashoka that he turned to Buddhism and non-violence, spreading its message on stone edicts."},
+    {q:"Which Greek ambassador visited the Mauryan court and wrote about it?", options:["Megasthenes","Alexander","Seleucus","Ptolemy"], correct:0,
+     hint:"He served Seleucus I and authored a work called 'Indica'.",
+     fact:"Megasthenes, ambassador of Seleucus I, described Mauryan society and administration in his work 'Indica'."},
+    {q:"Who was the last ruler of the Mauryan Empire, assassinated by his own general?", options:["Dasaratha","Samprati","Brihadratha","Bindusara"], correct:2,
+     hint:"His killer, Pushyamitra Shunga, then founded a new dynasty.",
+     fact:"Brihadratha was assassinated around 185 BCE by his general Pushyamitra Shunga, who founded the Shunga dynasty, ending Mauryan rule."}
+  ],
+  satavahana: [
+    {q:"The Satavahana Empire was centred on which region of India?", options:["Punjab","The Deccan plateau","Bengal","Kashmir"], correct:1,
+     hint:"Think present-day Maharashtra, Telangana and Andhra Pradesh.",
+     fact:"The Satavahanas ruled much of the Deccan plateau, spanning parts of today's Maharashtra, Telangana and Andhra Pradesh."},
+    {q:"Who is traditionally credited as the founder of the Satavahana dynasty?", options:["Gautamiputra Satakarni","Hala","Simuka","Pulumavi"], correct:2,
+     hint:"He established the line around the 1st century BCE.",
+     fact:"Simuka is traditionally credited with founding the Satavahana dynasty around the 1st century BCE."},
+    {q:"Which city served as an early Satavahana capital?", options:["Pratishthana (Paithan)","Madurai","Thanjavur","Vijayanagara"], correct:0,
+     hint:"It sits on the Godavari river in present-day Maharashtra.",
+     fact:"Pratishthana, modern Paithan on the Godavari, served as an important early Satavahana capital."},
+    {q:"Which language did the Satavahanas prominently patronise in literature and inscriptions?", options:["Persian","Prakrit","Tamil","Pali only"], correct:1,
+     hint:"A famous poetry anthology called the Gathasaptasati was compiled in it.",
+     fact:"The Satavahanas patronised Prakrit, and King Hala is credited with compiling the Prakrit poetry anthology Gathasaptasati."},
+    {q:"Which Satavahana king is celebrated for defeating the Western Kshatrapa Shaka rulers?", options:["Simuka","Hala","Gautamiputra Satakarni","Krishna"], correct:2,
+     hint:"His mother Gautami Balashri is honoured in a famous inscription praising his victories.",
+     fact:"Gautamiputra Satakarni is renowned for defeating the Shaka ruler Nahapana, commemorated in an inscription at Nashik by his mother."},
+    {q:"Satavahana ports on the Deccan coast carried on active trade with which distant power?", options:["The Roman Empire","The Ottoman Empire","The Chinese Empire","The Persian Empire"], correct:0,
+     hint:"Hoards of foreign gold and silver coins found in the region hint at this trade route.",
+     fact:"Roman coins found across the Deccan show the brisk maritime trade Satavahana ports carried on with the Roman Empire."}
+  ],
+  mughal: [
+    {q:"Who founded the Mughal Empire after the First Battle of Panipat in 1526?", options:["Akbar","Humayun","Babur","Sher Shah Suri"], correct:2,
+     hint:"He was a descendant of both Timur and Genghis Khan.",
+     fact:"Babur founded the Mughal Empire in 1526 after defeating Ibrahim Lodi at the First Battle of Panipat."},
+    {q:"Which Mughal emperor introduced the syncretic faith Din-i-Ilahi?", options:["Jahangir","Akbar","Shah Jahan","Aurangzeb"], correct:1,
+     hint:"He also abolished the jizya tax on non-Muslims for a time.",
+     fact:"Akbar introduced Din-i-Ilahi, an eclectic faith drawing on elements of several religions to unite his diverse empire."},
+    {q:"Who commissioned the Taj Mahal?", options:["Akbar","Babur","Shah Jahan","Aurangzeb"], correct:2,
+     hint:"He built it in memory of his beloved wife.",
+     fact:"Shah Jahan commissioned the Taj Mahal as a mausoleum for his wife Mumtaz Mahal."},
+    {q:"The First Battle of Panipat (1526) saw Babur defeat which Delhi Sultan?", options:["Ibrahim Lodi","Sher Shah Suri","Muhammad Shah","Bahadur Shah"], correct:0,
+     hint:"His defeat ended the Lodi dynasty's rule over Delhi.",
+     fact:"Babur's decisive use of gunpowder and cannon at Panipat defeated Ibrahim Lodi, ending the Lodi dynasty."},
+    {q:"Which Mughal emperor reversed much of Akbar's policy of religious tolerance?", options:["Jahangir","Shah Jahan","Aurangzeb","Humayun"], correct:2,
+     hint:"He reimposed the jizya tax and pursued a more orthodox religious policy.",
+     fact:"Aurangzeb reimposed the jizya tax on non-Muslims and pursued stricter orthodox policies, reversing Akbar's syncretism."},
+    {q:"Akbar's finance minister Todar Mal is remembered for refining which system?", options:["The Zabt land-revenue system","The Din-i-Ilahi faith","The Mansabdari army ranks","The Mughal miniature art school"], correct:0,
+     hint:"It involved careful measurement of land to set fair revenue.",
+     fact:"Raja Todar Mal devised the Zabt system, measuring land and setting revenue based on soil type and crop yield."}
+  ]
+};
+
+/* =========================================================
+   ROOM DEFINITIONS (theme + difficulty knobs)
+========================================================= */
+const ROOM_DEFS = [
+  {key:'mauryan', name:'Mauryan Empire', diff:'EASY', segCount:3, gap:48, enemySpeed:0.6, enemyCount:1, crateCount:1, spikeCount:1,
+   sky:['#8fd3ff','#e9f6ff'], ground:'#8a5a2b', groundTop:'#c99a3e', accent:'#c99a3e', hillColor:'#5c7a3a'},
+  {key:'satavahana', name:'Satavahana Empire', diff:'MEDIUM', segCount:4, gap:58, enemySpeed:0.85, enemyCount:2, crateCount:1, spikeCount:2,
+   sky:['#ff9d63','#ffe1b0'], ground:'#7a3b26', groundTop:'#c2703f', accent:'#e08a3e', hillColor:'#8a4a2c'},
+  {key:'mughal', name:'Mughal Empire', diff:'HARD', segCount:5, gap:68, enemySpeed:1.1, enemyCount:3, crateCount:2, spikeCount:2,
+   sky:['#4a3a63','#8f6a9c'], ground:'#5c2430', groundTop:'#8f2f3d', accent:'#d0a24c', hillColor:'#3c2440'}
+];
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* =========================================================
+   GAME STATE
+========================================================= */
+let state = 'START'; // START, PLAYING, MODAL, RECAP, COMPLETE
+let roomIndex = 0;
+let score = 0;
+let lives = 3;
+let invuln = 0;
+let cameraX = 0;
+let room = null; // built level for current room
+let activePaintingIndex = null;
+let recapSeenFacts = [];
+let keys = {left:false,right:false,jump:false};
+let jumpHeld = false;
+
+const player = {x:60,y:0,w:26,h:38,vx:0,vy:0,onGround:false,facing:1,squishT:0};
+
+/* =========================================================
+   LEVEL BUILDING
+========================================================= */
+function buildRoom(defIndex){
+  const def = ROOM_DEFS[defIndex];
+  const segW = 380;
+  const segments = [];
+  let x = 0;
+  for(let i=0;i<def.segCount;i++){
+    segments.push({x:x, w:segW});
+    x += segW + (i < def.segCount-1 ? def.gap : 0);
+  }
+  const levelWidth = x;
+
+  // platforms: ground segments are solid rects at GROUND_Y..CH
+  const platforms = segments.map(s=>({x:s.x,y:GROUND_Y,w:s.w,h:CH-GROUND_Y}));
+
+  // (floating platforms omitted for now to keep the room easy to navigate)
+
+  // paintings placed near the end of segments at ~35%,65%,92% of segment count
+  const paintPositions = [
+    Math.max(1,Math.floor(segments.length*0.35)),
+    Math.max(2,Math.floor(segments.length*0.65)),
+    segments.length-1
+  ];
+  const chosenQs = shuffle(POOLS[def.key]).slice(0,3);
+  const paintings = paintPositions.map((segIdx,i)=>{
+    const seg = segments[Math.min(segIdx,segments.length-1)];
+    return {
+      x: seg.x + seg.w - 60,
+      y: GROUND_Y - 78,
+      w: 46, h: 62,
+      unlocked: i===0,
+      solved:false,
+      question: chosenQs[i]
+    };
+  });
+
+  // enemies: spread across middle segments, skip first & keep some clearance around paintings
+  const enemies = [];
+  for(let i=0;i<def.enemyCount;i++){
+    const seg = segments[1 + (i % Math.max(1,segments.length-2))];
+    const minX = seg.x + 20;
+    const maxX = seg.x + seg.w - 60;
+    enemies.push({
+      x: minX + (maxX-minX)*0.5, y: GROUND_Y-28, w:28,h:28,
+      minX, maxX, vx: def.enemySpeed*(i%2===0?1:-1), alive:true, squish:0
+    });
+  }
+
+  // crates: solid obstacles that must be jumped over
+  const crates = [];
+  for(let i=0;i<def.crateCount;i++){
+    const seg = segments[1 + (i % Math.max(1,segments.length-2))];
+    crates.push({x: seg.x + seg.w*0.28 + i*8, y:GROUND_Y-34, w:32,h:34});
+  }
+
+  // spikes: trigger-only hazards on the ground
+  const spikes = [];
+  for(let i=0;i<def.spikeCount;i++){
+    const seg = segments[2 + (i % Math.max(1,segments.length-2))] || segments[segments.length-1];
+    spikes.push({x: seg.x + seg.w*0.68, y:GROUND_Y-14, w:34,h:14});
+  }
+
+  // coins: small collectibles scattered for extra score
+  const coins = [];
+  segments.forEach((seg,i)=>{
+    if(i===0) return;
+    for(let c=0;c<3;c++){
+      coins.push({x: seg.x + 40 + c*70, y: GROUND_Y-60 - (c%2===0?0:30), r:8, taken:false});
+    }
+  });
+
+  return {
+    def, segments, platforms, paintings, enemies, crates, spikes, coins,
+    levelWidth, spawnX: 60, checkpointX: 60
+  };
+}
+
+function enterRoom(idx){
+  roomIndex = idx;
+  room = buildRoom(idx);
+  player.x = room.spawnX; player.y = GROUND_Y - player.h;
+  player.vx=0; player.vy=0; player.onGround=true;
+  cameraX = 0;
+  invuln = 0;
+  document.getElementById('roomLabel').textContent = `ROOM ${idx+1} · ${room.def.diff} · ${room.def.name.toUpperCase()}`;
+  document.documentElement.style.setProperty('--accent', room.def.accent);
+  renderProgressDots();
+  state = 'PLAYING';
+}
+
+/* =========================================================
+   HUD
+========================================================= */
+function renderHearts(){
+  const el = document.getElementById('hearts');
+  let s='';
+  for(let i=0;i<3;i++) s += `<span>${i<lives?'❤️':'🖤'}</span>`;
+  el.innerHTML = s;
+}
+function renderProgressDots(){
+  const el = document.getElementById('progressDots');
+  el.innerHTML = room.paintings.map(p=>`<i class="${p.solved?'solved':''}"></i>`).join('');
+}
+function updateScoreLabel(){
+  document.getElementById('scoreLabel').textContent = `SCORE ${score}`;
+}
+let toastTimer=null;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'),1400);
+}
+
+/* =========================================================
+   INPUT
+========================================================= */
+window.addEventListener('keydown', e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA') keys.left=true;
+  if(e.code==='ArrowRight'||e.code==='KeyD') keys.right=true;
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){ keys.jump=true; e.preventDefault(); }
+  if(e.code==='Enter' && state==='START') startGame();
+});
+window.addEventListener('keyup', e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA') keys.left=false;
+  if(e.code==='ArrowRight'||e.code==='KeyD') keys.right=false;
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW') keys.jump=false;
+});
+
+function bindHold(el, onDown, onUp){
+  const down = e=>{e.preventDefault(); onDown();};
+  const up = e=>{e.preventDefault(); onUp();};
+  el.addEventListener('touchstart',down);
+  el.addEventListener('touchend',up);
+  el.addEventListener('touchcancel',up);
+  el.addEventListener('mousedown',down);
+  el.addEventListener('mouseup',up);
+  el.addEventListener('mouseleave',up);
+}
+if('ontouchstart' in window){
+  document.getElementById('touchControls').classList.add('on');
+}
+bindHold(document.getElementById('tLeft'), ()=>keys.left=true, ()=>keys.left=false);
+bindHold(document.getElementById('tRight'), ()=>keys.right=true, ()=>keys.right=false);
+bindHold(document.getElementById('tJump'), ()=>keys.jump=true, ()=>keys.jump=false);
+
+/* =========================================================
+   COLLISION HELPERS
+========================================================= */
+function rectsOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function moveAndCollide(){
+  const solids = room.platforms.concat(room.crates);
+
+  // horizontal
+  player.x += player.vx;
+  for(const s of solids){
+    if(rectsOverlap(player,s)){
+      if(player.vx>0) player.x = s.x - player.w;
+      else if(player.vx<0) player.x = s.x + s.w;
+      player.vx = 0;
+    }
+  }
+  player.x = Math.max(0, Math.min(player.x, room.levelWidth - player.w));
+
+  // vertical
+  player.y += player.vy;
+  player.onGround = false;
+  for(const s of solids){
+    if(rectsOverlap(player,s)){
+      if(player.vy>0){ player.y = s.y - player.h; player.vy=0; player.onGround=true; }
+      else if(player.vy<0){ player.y = s.y + s.h; player.vy=0; }
+    }
+  }
+
+  // fell into a pit
+  if(player.y > CH+80){
+    loseLife();
+    player.x = room.checkpointX;
+    player.y = GROUND_Y - player.h;
+    player.vx=0; player.vy=0;
+  }
+}
+
+function loseLife(){
+  if(invuln>0) return;
+  lives -= 1;
+  invuln = 130;
+  renderHearts();
+  if(lives<=0){
+    lives = 3;
+    // restart current room fresh on total loss of hearts
+    room = buildRoom(roomIndex);
+    player.x = room.spawnX; player.y = GROUND_Y - player.h;
+    renderHearts();
+    toast('Out of hearts — room reset');
+  }
+}
+
+/* =========================================================
+   UPDATE
+========================================================= */
+function updatePlayer(){
+  if(keys.left){ player.vx = Math.max(player.vx - ACCEL, -MAX_SPEED); player.facing=-1; }
+  else if(keys.right){ player.vx = Math.min(player.vx + ACCEL, MAX_SPEED); player.facing=1; }
+  else { player.vx *= FRICTION; if(Math.abs(player.vx)<0.05) player.vx=0; }
+
+  if(keys.jump && player.onGround && !jumpHeld){
+    player.vy = JUMP_V;
+    player.onGround = false;
+  }
+  jumpHeld = keys.jump;
+
+  player.vy += GRAVITY;
+  if(player.vy>16) player.vy=16;
+
+  moveAndCollide();
+
+  if(invuln>0) invuln--;
+}
+
+function updateEnemies(){
+  for(const en of room.enemies){
+    if(!en.alive){
+      if(en.squish>0) en.squish--;
+      continue;
+    }
+    en.x += en.vx;
+    if(en.x<en.minX){en.x=en.minX;en.vx*=-1;}
+    if(en.x+en.w>en.maxX){en.x=en.maxX-en.w;en.vx*=-1;}
+
+    if(rectsOverlap(player,en)){
+      const stomping = player.vy>0 && (player.y+player.h) - en.y < 18;
+      if(stomping){
+        en.alive=false; en.squish=14;
+        player.vy = -8.5;
+        score += 25; updateScoreLabel();
+      } else if(invuln<=0){
+        loseLife();
+        player.vx = (player.x < en.x ? -4 : 4);
+        player.vy = -4.5;
+      }
+    }
+  }
+}
+
+function updateSpikesAndCoins(){
+  for(const sp of room.spikes){
+    if(rectsOverlap(player,sp) && invuln<=0){
+      loseLife();
+      player.vy = -5;
+      player.vx = player.facing*-2.5;
+    }
+  }
+  for(const c of room.coins){
+    if(c.taken) continue;
+    const cb = {x:c.x-c.r,y:c.y-c.r,w:c.r*2,h:c.r*2};
+    if(rectsOverlap(player,cb)){ c.taken=true; score+=10; updateScoreLabel(); }
+  }
+}
+
+function updatePaintings(){
+  for(let i=0;i<room.paintings.length;i++){
+    const p = room.paintings[i];
+    if(p.solved || !p.unlocked) continue;
+    if(rectsOverlap(player,p)){
+      openQuestion(i);
+      return;
+    }
+  }
+}
+
+function updateCamera(){
+  const target = Math.max(0, Math.min(player.x - CW/2, room.levelWidth - CW));
+  cameraX += (target - cameraX) * 0.15;
+}
+
+function gameLoop(){
+  if(state==='PLAYING'){
+    updatePlayer();
+    updateEnemies();
+    updateSpikesAndCoins();
+    updatePaintings();
+    updateCamera();
+  }
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+/* =========================================================
+   DRAW
+========================================================= */
+function drawBackground(){
+  const [top,bot] = room.def.sky;
+  const g = ctx.createLinearGradient(0,0,0,GROUND_Y);
+  g.addColorStop(0,top); g.addColorStop(1,bot);
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,CW,GROUND_Y);
+
+  // parallax hills
+  ctx.fillStyle = room.def.hillColor;
+  for(let i=-1;i<6;i++){
+    const bx = i*260 - (cameraX*0.35)%260;
+    ctx.beginPath();
+    ctx.ellipse(bx+130, GROUND_Y-10, 150, 70, 0, Math.PI, 2*Math.PI);
+    ctx.fill();
+  }
+  // clouds
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  for(let i=-1;i<6;i++){
+    const bx = i*300 - (cameraX*0.15)%300;
+    drawCloud(bx+80, 60+ (i%2)*30);
+  }
+}
+function drawCloud(x,y){
+  ctx.beginPath();
+  ctx.ellipse(x,y,26,16,0,0,Math.PI*2);
+  ctx.ellipse(x+22,y+6,20,14,0,0,Math.PI*2);
+  ctx.ellipse(x-22,y+6,20,14,0,0,Math.PI*2);
+  ctx.fill();
+}
+
+function drawGround(){
+  for(const seg of room.segments){
+    const x = seg.x - cameraX;
+    if(x+seg.w<0||x>CW) continue;
+    ctx.fillStyle = room.def.ground;
+    ctx.fillRect(x, GROUND_Y, seg.w, CH-GROUND_Y);
+    ctx.fillStyle = room.def.groundTop;
+    ctx.fillRect(x, GROUND_Y, seg.w, 10);
+    // brick texture
+    ctx.strokeStyle = 'rgba(0,0,0,.15)';
+    for(let bx=0; bx<seg.w; bx+=30){
+      ctx.beginPath(); ctx.moveTo(x+bx,GROUND_Y+10); ctx.lineTo(x+bx,CH); ctx.stroke();
+    }
+  }
+  // floaters
+  ctx.fillStyle = room.def.groundTop;
+  for(const p of room.platforms){
+    if(p.h > 30) continue; // skip ground segs (tall)
+    const x = p.x-cameraX;
+    if(x+p.w<0||x>CW) continue;
+    ctx.fillRect(x,p.y,p.w,p.h);
+    ctx.fillStyle = room.def.ground;
+    ctx.fillRect(x,p.y+p.h-4,p.w,4);
+    ctx.fillStyle = room.def.groundTop;
+  }
+}
+
+function drawCrates(){
+  for(const c of room.crates){
+    const x = c.x-cameraX;
+    if(x+c.w<0||x>CW) continue;
+    ctx.fillStyle = '#8a6a3a';
+    ctx.fillRect(x,c.y,c.w,c.h);
+    ctx.strokeStyle = 'rgba(0,0,0,.4)';
+    ctx.strokeRect(x+2,c.y+2,c.w-4,c.h-4);
+    ctx.beginPath();
+    ctx.moveTo(x,c.y); ctx.lineTo(x+c.w,c.y+c.h);
+    ctx.moveTo(x+c.w,c.y); ctx.lineTo(x,c.y+c.h);
+    ctx.stroke();
+  }
+}
+
+function drawSpikes(){
+  ctx.fillStyle = '#d7d7d7';
+  for(const sp of room.spikes){
+    const x = sp.x-cameraX;
+    if(x+sp.w<0||x>CW) continue;
+    const n = 3, sw = sp.w/n;
+    for(let i=0;i<n;i++){
+      ctx.beginPath();
+      ctx.moveTo(x+i*sw, sp.y+sp.h);
+      ctx.lineTo(x+i*sw+sw/2, sp.y);
+      ctx.lineTo(x+i*sw+sw, sp.y+sp.h);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+function drawCoins(){
+  for(const c of room.coins){
+    if(c.taken) continue;
+    const x = c.x-cameraX;
+    if(x<-20||x>CW+20) continue;
+    ctx.fillStyle = '#ffd75e';
+    ctx.beginPath(); ctx.ellipse(x,c.y,c.r,c.r,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#b8860b'; ctx.lineWidth=2; ctx.stroke(); ctx.lineWidth=1;
+  }
+}
+
+function drawEnemies(){
+  for(const en of room.enemies){
+    const x = en.x-cameraX;
+    if(x+en.w<0||x>CW) continue;
+    if(!en.alive && en.squish<=0) continue;
+    ctx.save();
+    ctx.translate(x+en.w/2, en.y+en.h);
+    const squishScale = (!en.alive)? 0.3 : 1;
+    ctx.scale(1, squishScale);
+    ctx.translate(-en.w/2,-en.h);
+    ctx.fillStyle = en.alive ? '#7a3b8f' : '#553';
+    ctx.beginPath();
+    ctx.ellipse(en.w/2, en.h/2, en.w/2, en.h/2, 0,0,Math.PI*2);
+    ctx.fill();
+    if(en.alive){
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.ellipse(en.w*0.35,en.h*0.4,4,5,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(en.w*0.65,en.h*0.4,4,5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#000';
+      ctx.beginPath(); ctx.ellipse(en.w*0.35,en.h*0.42,2,2.4,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(en.w*0.65,en.h*0.42,2,2.4,0,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#000'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(en.w*0.22,en.h*0.28); ctx.lineTo(en.w*0.42,en.h*0.34); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(en.w*0.78,en.h*0.28); ctx.lineTo(en.w*0.58,en.h*0.34); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function drawPaintings(){
+  for(const p of room.paintings){
+    const x = p.x-cameraX;
+    if(x+p.w<0||x>CW) continue;
+    // frame
+    ctx.fillStyle = '#3a2a18';
+    ctx.fillRect(x-4,p.y-4,p.w+8,p.h+8);
+    ctx.fillStyle = p.solved ? '#3f6b45' : (p.unlocked ? '#2d4a6b' : '#333');
+    ctx.fillRect(x,p.y,p.w,p.h);
+    ctx.strokeStyle = room.def.accent; ctx.lineWidth=2; ctx.strokeRect(x,p.y,p.w,p.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(p.solved ? '✔' : (p.unlocked ? '?' : '🔒'), x+p.w/2, p.y+p.h/2);
+    // easel legs
+    ctx.strokeStyle = '#3a2a18'; ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(x+6,p.y+p.h+4); ctx.lineTo(x-6,GROUND_Y);
+    ctx.moveTo(x+p.w-6,p.y+p.h+4); ctx.lineTo(x+p.w+6,GROUND_Y);
+    ctx.stroke();
+  }
+}
+
+function drawPlayer(){
+  const x = player.x-cameraX;
+  ctx.save();
+  ctx.translate(x+player.w/2, player.y+player.h/2);
+  if(player.facing<0) ctx.scale(-1,1);
+  if(invuln>0 && Math.floor(invuln/6)%2===0) ctx.globalAlpha = 0.35;
+
+  // legs
+  ctx.fillStyle = '#3e2c22';
+  ctx.fillRect(-player.w/2+3, player.h/2-10, 8, 10);
+  ctx.fillRect(player.w/2-11, player.h/2-10, 8, 10);
+  // body (explorer vest)
+  ctx.fillStyle = '#3f7d4a';
+  ctx.fillRect(-player.w/2, -player.h/2+12, player.w, player.h/2);
+  // satchel strap
+  ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(-player.w/2, -player.h/2+14); ctx.lineTo(player.w/2-2, player.h/2-6); ctx.stroke();
+  // head
+  ctx.fillStyle = '#e7b98a';
+  ctx.beginPath(); ctx.ellipse(0,-player.h/2+8,10,10,0,0,Math.PI*2); ctx.fill();
+  // hat
+  ctx.fillStyle = '#8a5a2b';
+  ctx.fillRect(-12,-player.h/2-2,24,6);
+  ctx.beginPath(); ctx.ellipse(-2,-player.h/2-2,9,7,0,Math.PI,2*Math.PI); ctx.fill();
+  // eye
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.ellipse(5,-player.h/2+7,1.6,2,0,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+  if(!room){ ctx.fillStyle='#111'; ctx.fillRect(0,0,CW,CH); return; }
+  drawBackground();
+  drawGround();
+  drawSpikes();
+  drawCrates();
+  drawCoins();
+  drawPaintings();
+  drawEnemies();
+  drawPlayer();
+
+  // ground line under sky
+  ctx.fillStyle = 'rgba(0,0,0,.15)';
+  ctx.fillRect(0,GROUND_Y,CW,2);
+}
+
+/* =========================================================
+   QUESTION MODAL
+========================================================= */
+function openQuestion(i){
+  activePaintingIndex = i;
+  state = 'MODAL';
+  const p = room.paintings[i];
+  const q = p.question;
+  document.getElementById('qEyebrow').textContent = `${room.def.name.toUpperCase()} · PAINTING ${i+1} OF 3`;
+  document.getElementById('qTitle').textContent = `Room ${roomIndex+1} · ${room.def.diff}`;
+  document.getElementById('questionText').textContent = q.q;
+  document.getElementById('hintText').textContent = q.hint;
+  document.getElementById('qFeedback').textContent = '';
+  document.getElementById('qFeedback').className = 'feedback';
+
+  const list = document.getElementById('optionsList');
+  list.innerHTML = '';
+  q.options.forEach((opt,idx)=>{
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = opt;
+    btn.addEventListener('click', ()=>answerQuestion(idx,btn));
+    list.appendChild(btn);
+  });
+
+  document.getElementById('questionOverlay').classList.add('show');
+}
+
+function answerQuestion(idx, btn){
+  const p = room.paintings[activePaintingIndex];
+  const q = p.question;
+  const feedback = document.getElementById('qFeedback');
+  if(idx === q.correct){
+    btn.classList.add('correct');
+    feedback.textContent = 'Correct! The painting reveals its secret.';
+    feedback.className = 'feedback good';
+    score += 50; updateScoreLabel();
+    document.querySelectorAll('#optionsList .option').forEach(b=>b.disabled=true);
+    setTimeout(()=>{
+      p.solved = true;
+      recapSeenFacts.push({q:q.q, fact:q.fact});
+      if(room.paintings[activePaintingIndex+1]) room.paintings[activePaintingIndex+1].unlocked = true;
+      renderProgressDots();
+      document.getElementById('questionOverlay').classList.remove('show');
+      state = 'PLAYING';
+      // nudge player back so they don't instantly re-trigger
+      player.x -= 30;
+      checkRoomClear();
+    }, 900);
+  } else {
+    btn.classList.add('wrong');
+    btn.disabled = true;
+    feedback.textContent = 'Not quite — check the hint and try another answer.';
+    feedback.className = 'feedback bad';
+  }
+}
+
+function checkRoomClear(){
+  if(room.paintings.every(p=>p.solved)){
+    openRecap();
+  }
+}
+
+/* =========================================================
+   RECAP
+========================================================= */
+function openRecap(){
+  state = 'RECAP';
+  document.getElementById('recapEyebrow').textContent = `${room.def.name.toUpperCase()} · ROOM ${roomIndex+1} CLEARED`;
+  document.getElementById('recapTitle').textContent = 'Recap & fun facts';
+  const wrap = document.getElementById('recapCards');
+  wrap.innerHTML = '';
+  room.paintings.forEach((p,i)=>{
+    const card = document.createElement('div');
+    card.className = 'flipcard';
+    card.innerHTML = `<div class="front">FACT ${i+1}<small>${p.question.q}</small></div><div class="back">${p.question.fact}</div>`;
+    card.addEventListener('click', ()=>card.classList.toggle('open'));
+    wrap.appendChild(card);
+  });
+  document.getElementById('recapOverlay').classList.add('show');
+}
+
+document.getElementById('recapContinueBtn').addEventListener('click', ()=>{
+  document.getElementById('recapOverlay').classList.remove('show');
+  if(roomIndex+1 < ROOM_DEFS.length){
+    enterRoom(roomIndex+1);
+  } else {
+    openComplete();
+  }
+});
+
+/* =========================================================
+   START / COMPLETE
+========================================================= */
+function startGame(){
+  document.getElementById('startOverlay').classList.remove('show');
+  score = 0; lives = 3; recapSeenFacts=[];
+  updateScoreLabel(); renderHearts();
+  enterRoom(0);
+}
+document.getElementById('startBtn').addEventListener('click', startGame);
+
+function openComplete(){
+  state = 'COMPLETE';
+  document.getElementById('completeSummary').textContent =
+    `You uncovered the Mauryan, Satavahana and Mughal empires with a final score of ${score}. Play again for a fresh set of questions and a reshuffled level.`;
+  document.getElementById('completeOverlay').classList.add('show');
+}
+document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+  document.getElementById('completeOverlay').classList.remove('show');
+  startGame();
+});
+
+/* =========================================================
+   BOOT
+========================================================= */
+room = buildRoom(0); // so canvas isn't blank behind the start screen
+draw();
+requestAnimationFrame(gameLoop);
+
+})();
+</script>
+</body>
+</html>
